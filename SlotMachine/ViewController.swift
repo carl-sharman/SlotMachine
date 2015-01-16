@@ -33,6 +33,11 @@ class ViewController: UIViewController {
     
     var slots:[[Slot]] = []
     
+    // Stats
+    var credits = 0
+    var currentBet = 0
+    var winnings = 0
+    
     let kMarginForView: CGFloat = 10.0
     let kMarginForSlot: CGFloat = 2.0
     
@@ -50,9 +55,10 @@ class ViewController: UIViewController {
         
         self.setupContainerViews()
         self.setupFirstContainer(self.firstContainer)
-        self.setupSecondContainer(self.secondContainer)
         self.setupThirdContainer(self.thirdContainer)
         self.setupFourthContainer(self.fourthContainer)
+        
+        self.hardReset()
     }
 
     override func didReceiveMemoryWarning() {
@@ -63,20 +69,49 @@ class ViewController: UIViewController {
     // IBActions
     
     func resetButtonPressed(button: UIButton) {
-        println("resetButtonPressed")
+        self.hardReset()
     }
     
     func betOneButtonPressed(button: UIButton) {
-        println(button)
+        if self.credits <= 0 {
+            self.showAlertWithText(header: "No more credits", message: "Reset game")
+        } else {
+            
+            if self.currentBet < 5 {
+                self.currentBet += 1
+                self.credits -= 1
+                self.updateMainView()
+            } else {
+                self.showAlertWithText(message: "You can only bet 5 credits at a time!")
+            }
+        }
     }
     
     func betMaxButtonPresssed(button: UIButton) {
-        
+        if self.credits <= 5 {
+            self.showAlertWithText(header: "Not enough credits", message: "Bet less")
+        } else {
+            if self.currentBet < 5 {
+                var creditsToBetMax = 5 - self.currentBet
+                self.credits -= creditsToBetMax
+                self.currentBet += creditsToBetMax
+                self.updateMainView()
+            } else {
+                self.showAlertWithText(message: "You can only bet 5 credits at a time!")
+            }
+        }
     }
     
     func spinButtonPressed(button: UIButton) {
+        self.removeSlotImageViews()
         self.slots = Factory.createSlots()
         self.setupSecondContainer(self.secondContainer)
+        
+        var winningsMultiplier = SlotBrain.computeWinnings(self.slots)
+        self.winnings = winningsMultiplier * self.currentBet
+        self.credits += self.winnings
+        self.currentBet = 0
+        self.updateMainView()
     }
     
     func setupContainerViews() {
@@ -116,7 +151,17 @@ class ViewController: UIViewController {
             
             for var slotNumber = 0; slotNumber < self.kNumberOfSlots; slotNumber++ {
                 
+                var slot:Slot
                 var slotImageView = UIImageView()
+                
+                if slots.count != 0 {
+                    let slotContainer = slots[containerNumber]
+                    slot = slotContainer[slotNumber]
+                    slotImageView.image = slot.image
+                } else {
+                    slotImageView.image = UIImage(named: "Ace")
+                }
+                
                 slotImageView.backgroundColor = UIColor.yellowColor()
                 slotImageView.frame = CGRect(x: containerView.bounds.origin.x + (containerView.bounds.size.width * CGFloat(containerNumber) * self.kThird), y: containerView.bounds.origin.y + (containerView.bounds.size.height * CGFloat(slotNumber) * self.kThird), width: containerView.bounds.width * self.kThird - kMarginForSlot, height: containerView.bounds.height * self.kThird - self.kMarginForSlot)
                 containerView.addSubview(slotImageView)
@@ -178,13 +223,13 @@ class ViewController: UIViewController {
         containerView.addSubview(self.betTitleLabel)
         
         // Winner paid title label
-        self.winnerPaidLabel = UILabel()
-        self.winnerPaidLabel.text = "Winner Paid"
-        self.winnerPaidLabel.textColor = UIColor.blackColor()
-        self.winnerPaidLabel.font = UIFont(name: "AmericanTypewriter", size: 14)
-        self.winnerPaidLabel.sizeToFit()
-        self.winnerPaidLabel.center = CGPoint(x: containerView.frame.width * self.kSixth * 5, y: containerView.frame.height * self.kThird * 2)
-        containerView.addSubview(self.winnerPaidLabel)
+        self.winnerPaidTitleLabel = UILabel()
+        self.winnerPaidTitleLabel.text = "Winner Paid"
+        self.winnerPaidTitleLabel.textColor = UIColor.blackColor()
+        self.winnerPaidTitleLabel.font = UIFont(name: "AmericanTypewriter", size: 14)
+        self.winnerPaidTitleLabel.sizeToFit()
+        self.winnerPaidTitleLabel.center = CGPoint(x: containerView.frame.width * self.kSixth * 5, y: containerView.frame.height * self.kThird * 2)
+        containerView.addSubview(self.winnerPaidTitleLabel)
     }
     
     func setupFourthContainer(containerView: UIView) {
@@ -230,6 +275,39 @@ class ViewController: UIViewController {
         self.spinButton.center = CGPoint(x: containerView.frame.width * 7 * self.kEighth, y: containerView.frame.height * self.kHalf)
         self.spinButton.addTarget(self, action: "spinButtonPressed:", forControlEvents: UIControlEvents.TouchUpInside)
         containerView.addSubview(self.spinButton)
+    }
+    
+    func removeSlotImageViews() {
+        if self.secondContainer != nil {
+            let container: UIView? = self.secondContainer
+            let subViews: Array? = container!.subviews
+            for view in subViews! {
+                view.removeFromSuperview()
+            }
+        }
+    }
+    
+    func hardReset() {
+        self.removeSlotImageViews()
+        self.slots.removeAll(keepCapacity: true)
+        self.setupSecondContainer(self.secondContainer)
+        self.credits = 50
+        self.winnings = 0
+        self.currentBet = 0
+        
+        self.updateMainView()
+    }
+    
+    func updateMainView() {
+        self.creditsLabel.text = "\(credits)"
+        self.betLabel.text = "\(currentBet)"
+        self.winnerPaidLabel.text = "\(winnings)"
+    }
+    
+    func showAlertWithText (header: String = "Warning", message: String) {
+        var alert = UIAlertController(title: header, message: message, preferredStyle: UIAlertControllerStyle.Alert)
+        alert.addAction(UIAlertAction(title: "Ok", style: UIAlertActionStyle.Default, handler: nil))
+        self.presentViewController(alert, animated: true, completion: nil)
     }
 }
 
